@@ -15,6 +15,20 @@ app.get('/api/test', (req, res) => {
     res.json({ message: "Backend is running successfully." })
 });
 
+// Ensure finalized_months table exists
+(async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS finalized_months (
+                month VARCHAR(50) PRIMARY KEY,
+                finalized_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    } catch (err) {
+        console.error("Error creating finalized_months table", err);
+    }
+})();
+
 // GET students and their payment status for a specific month
 app.get('/api/students/:month', async (req, res) => {
     const month = req.params.month;
@@ -27,7 +41,10 @@ app.get('/api/students/:month', async (req, res) => {
             ORDER BY s.id ASC
         `, [month]);
 
-        res.json(rows);
+        const [finalizedRows] = await db.query(`SELECT * FROM finalized_months WHERE month = ?`, [month]);
+        const isFinalized = finalizedRows.length > 0;
+
+        res.json({ students: rows, isFinalized });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "server error" });
@@ -39,6 +56,11 @@ app.get('/api/students/:month', async (req, res) => {
 app.post('/api/payments', async (req, res) => {
     const { student_id, month, status } = req.body;
     try {
+        const [finalizedRows] = await db.query(`SELECT * FROM finalized_months WHERE month = ?`, [month]);
+        if (finalizedRows.length > 0) {
+            return res.status(403).json({ error: "Month is finalized" });
+        }
+
         // We use INSERT ... ON DUPLICATE KEY UPDATE to either create the record or update it if it exists
         await db.query(`
             INSERT INTO payments (student_id, month, status) 
@@ -52,6 +74,22 @@ app.post('/api/payments', async (req, res) => {
         res.status(500).json({ error: "server error" });
     }
 
+});
+
+// POST to finalize a month
+app.post('/api/finalize', async (req, res) => {
+    const { month } = req.body;
+    try {
+        await db.query(`
+            INSERT INTO finalized_months (month) 
+            VALUES (?) 
+            ON DUPLICATE KEY UPDATE month = VALUES(month)
+        `, [month]);
+        res.json({ message: "Month finalized successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "server error" });
+    }
 });
 
 //start the server
