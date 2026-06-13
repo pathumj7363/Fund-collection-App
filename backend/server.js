@@ -131,24 +131,49 @@ app.post('/api/whatsapp/remind', async (req, res) => {
     const { month, message } = req.body;
     
     try {
-        // Find unpaid students for the selected month
+        // Find unpaid students for the selected month (including those with no payment record yet)
         const [unpaidStudents] = await db.query(
-            'SELECT s.phone_number FROM payments p JOIN students s ON p.student_id = s.id WHERE p.month = ? AND p.status = "unpaid"',
+            `SELECT s.id, s.name, s.phone_number 
+             FROM students s 
+             LEFT JOIN payments p ON s.id = p.student_id AND p.month = ? 
+             WHERE p.status = 'unpaid' OR p.status IS NULL`,
             [month]
         );
         
         if(unpaidStudents.length === 0) {
-            return res.status(200).json({ message: "No unpaid students found." });
+            return res.status(200).json({ 
+                message: "No unpaid students found.", 
+                intended: 0, 
+                successful: [], 
+                failed: [] 
+            });
         }
         
+        const successful = [];
+        const failed = [];
+
         // Loop through unpaid students and send WhatsApp message
         for (const student of unpaidStudents) {
             if (student.phone_number) {
-                const chatId = `${student.phone_number}@c.us`;
-                await whatsappClient.sendMessage(chatId, message);
+                try {
+                    const chatId = `${student.phone_number}@c.us`;
+                    await whatsappClient.sendMessage(chatId, message);
+                    successful.push(student);
+                } catch (err) {
+                    console.error(`Failed to send to ${student.name}:`, err);
+                    failed.push({ ...student, reason: "WhatsApp send failed" });
+                }
+            } else {
+                failed.push({ ...student, reason: "No phone number" });
             }
         }
-        res.status(200).json({ message: "Messages sent successfully!" });
+        
+        res.status(200).json({ 
+            message: "Messages processed!", 
+            intended: unpaidStudents.length,
+            successful,
+            failed
+        });
     } catch (error) {
         console.error("WhatsApp Error:", error);
         res.status(500).json({ error: "Failed to send messages" });
