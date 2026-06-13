@@ -2,13 +2,15 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const db = require('./db'); //import our database connection
+const app = express();
+
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
-const app = express();
-
 const whatsappClient = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        dataPath: process.env.SPACE_ID ? '/data/.wwebjs_auth' : './.wwebjs_auth'
+    }),
     puppeteer: {
         // Only use the hardcoded Windows path if running locally on your PC. 
         // In production (cloud server), it will automatically download and use its own Chromium.
@@ -37,7 +39,7 @@ whatsappClient.on('ready', () => {
 
 whatsappClient.initialize();
 
-//middleware
+// middleware
 
 app.use(cors());
 app.use(express.json());
