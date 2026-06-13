@@ -10,7 +10,9 @@ const app = express();
 const whatsappClient = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        // Only use the hardcoded Windows path if running locally on your PC. 
+        // In production (cloud server), it will automatically download and use its own Chromium.
+        ...(process.env.NODE_ENV !== 'production' && { executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' }),
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',

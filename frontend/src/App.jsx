@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { 
-  Search, 
-  Download, 
-  Lock, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Search,
+  Download,
+  Lock,
+  CheckCircle2,
+  XCircle,
   AlertTriangle,
   Wallet,
   Users
@@ -26,6 +26,7 @@ function App() {
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState(''); // Can be 'confirmFinalize' or 'alert'
   const [selectedMonth, setSelectedMonth] = useState('January');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showWaModal, setShowWaModal] = useState(false);
@@ -35,11 +36,11 @@ function App() {
   // Fetch students and their status whenever the month changes
   useEffect(() => {
     fetchStudents();
-  }, [selectedMonth]);
+  }, [selectedMonth, selectedYear]);
 
   const fetchStudents = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/students/${selectedMonth}`);
+      const response = await axios.get(`http://localhost:5000/api/students/${selectedMonth} ${selectedYear}`);
       if (Array.isArray(response.data)) {
         setStudents(response.data);
         setIsFinalized(false);
@@ -66,7 +67,7 @@ function App() {
       // Send update to the backend
       await axios.post('http://localhost:5000/api/payments', {
         student_id: studentId,
-        month: selectedMonth,
+        month: `${selectedMonth} ${selectedYear}`,
         status: newStatus
       });
 
@@ -88,16 +89,16 @@ function App() {
   const totalCollected = paidCount * FEE_AMOUNT;
 
   const handleFinalize = () => {
-    setModalMessage(`Are you sure you want to finalize collections for ${selectedMonth}? This action cannot be undone.`);
+    setModalMessage(`Are you sure you want to finalize collections for ${selectedMonth} ${selectedYear}? This action cannot be undone.`);
     setModalType('confirmFinalize');
     setShowModal(true);
   };
 
   const confirmFinalizeAction = async () => {
     try {
-      await axios.post('http://localhost:5000/api/finalize', { month: selectedMonth });
+      await axios.post('http://localhost:5000/api/finalize', { month: `${selectedMonth} ${selectedYear}` });
       setIsFinalized(true);
-      setModalMessage(`${selectedMonth} collection has been finalized.`);
+      setModalMessage(`${selectedMonth} ${selectedYear} collection has been finalized.`);
       setModalType('alert');
     } catch (error) {
       console.error("Error finalizing:", error);
@@ -109,13 +110,13 @@ function App() {
   const sendWhatsAppReminders = async () => {
     try {
       await axios.post('http://localhost:5000/api/whatsapp/remind', {
-        month: selectedMonth,
+        month: `${selectedMonth} ${selectedYear}`,
         message: waMessage
       });
       alert("Messages have been sent to unpaid students!");
       setShowWaModal(false);
       setWaMessage('');
-    } catch(error) {
+    } catch (error) {
       console.error(error);
       alert("Error sending messages. Is the WhatsApp client ready?");
     }
@@ -129,25 +130,24 @@ function App() {
 
   const generateSummaryReport = () => {
     const doc = new jsPDF();
-    const currentYear = new Date().getFullYear();
     const pageWidth = doc.internal.pageSize.getWidth();
-    
+
     // Top Header Banner
     doc.setFillColor(15, 23, 42); // Slate 900
     doc.rect(0, 0, pageWidth, 40, 'F');
-    
+
     // App Logo/Name
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.text("BATCH FUND COLLECTION REPORT", 14, 25);
-    
+
     // Statement Period Details
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text(`Statement Period: ${selectedMonth} ${currentYear}`, 14, 55);
-    
+    doc.text(`Statement Period: ${selectedMonth} ${selectedYear}`, 14, 55);
+
     doc.setDrawColor(226, 232, 240); // Slate 200
     doc.setLineWidth(0.5);
     doc.line(14, 60, pageWidth - 14, 60);
@@ -155,34 +155,34 @@ function App() {
     // Summary Box
     doc.setFillColor(248, 250, 252); // Slate 50
     doc.roundedRect(14, 70, pageWidth - 28, 90, 3, 3, 'FD');
-    
+
     // Box Title
     doc.setFontSize(12);
     doc.setTextColor(100, 116, 139); // Slate 500
     doc.text("ACCOUNT OVERVIEW", 20, 82);
-    
+
     // Details
     doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
-    
+
     const detailsLeft = 20;
     const detailsRight = pageWidth / 2 + 10;
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Department:", detailsLeft, 95);
     doc.setFont("helvetica", "normal");
     doc.text("Software Engineering", detailsLeft + 30, 95);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Student Status:", detailsLeft, 105);
     doc.setFont("helvetica", "normal");
     doc.text("Boys", detailsLeft + 35, 105);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Total Students:", detailsRight, 95);
     doc.setFont("helvetica", "normal");
     doc.text(`${safeStudents.length}`, detailsRight + 35, 95);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Paid Students:", detailsRight, 105);
     doc.setFont("helvetica", "normal");
@@ -191,37 +191,36 @@ function App() {
     // Total Collection Highlight
     doc.setDrawColor(203, 213, 225); // Slate 300
     doc.line(20, 115, pageWidth - 20, 115);
-    
+
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text("Total Collection:", 20, 135);
-    
+
     doc.setFontSize(22);
     doc.setTextColor(16, 185, 129); // Emerald 500
     doc.text(`LKR ${totalCollected.toLocaleString()}`, detailsRight, 135);
-    
+
     // Footer Page 1
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
     doc.text(`Generated on ${new Date().toLocaleDateString()} | Page 1 of 1`, pageWidth / 2, 280, { align: 'center' });
 
-    doc.save(`Summary_Report_${selectedMonth}_${currentYear}.pdf`);
+    doc.save(`Summary_Report_${selectedMonth}_${selectedYear}.pdf`);
     setShowModal(false);
   };
 
   const generateLedgerReport = () => {
     const doc = new jsPDF();
-    const currentYear = new Date().getFullYear();
     const pageWidth = doc.internal.pageSize.getWidth();
-    
+
     // Page Header
     doc.setFillColor(139, 92, 246); // Violet 500
     doc.rect(0, 0, pageWidth, 20, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`DETAILED PAYMENT LEDGER - ${selectedMonth.toUpperCase()} ${currentYear}`, 14, 13);
-    
+    doc.text(`DETAILED PAYMENT LEDGER - ${selectedMonth.toUpperCase()} ${selectedYear}`, 14, 13);
+
     // Table
     const tableColumn = ["ID", "Student Name", "Fee Amount", "Status"];
     const tableRows = [];
@@ -238,10 +237,10 @@ function App() {
 
     let dynamicFontSize = 10;
     let dynamicPadding = 4;
-    
+
     if (safeStudents.length > 15) {
-       dynamicFontSize = Math.max(6, 12 - Math.ceil(safeStudents.length / 10)); 
-       dynamicPadding = Math.max(1, 5 - Math.ceil(safeStudents.length / 15)); 
+      dynamicFontSize = Math.max(6, 12 - Math.ceil(safeStudents.length / 10));
+      dynamicPadding = Math.max(1, 5 - Math.ceil(safeStudents.length / 15));
     }
 
     autoTable(doc, {
@@ -253,7 +252,7 @@ function App() {
         fontSize: dynamicFontSize,
         cellPadding: dynamicPadding
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [15, 23, 42], // Slate 900
         textColor: 255,
         fontStyle: 'bold'
@@ -261,7 +260,7 @@ function App() {
       alternateRowStyles: {
         fillColor: [248, 250, 252]
       },
-      didParseCell: function(data) {
+      didParseCell: function (data) {
         // Color the Status column text
         if (data.section === 'body' && data.column.index === 3) {
           if (data.cell.raw === 'PAID') {
@@ -274,13 +273,13 @@ function App() {
         }
       }
     });
-    
+
     // Footer
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
     doc.text(`Generated on ${new Date().toLocaleDateString()} | Page 1 of 1`, pageWidth / 2, 280, { align: 'center' });
 
-    doc.save(`Ledger_Report_${selectedMonth}_${currentYear}.pdf`);
+    doc.save(`Ledger_Report_${selectedMonth}_${selectedYear}.pdf`);
     setShowModal(false);
   };
 
@@ -302,7 +301,7 @@ function App() {
         <div className="dashboard-card glass">
           <h2>LKR {totalCollected.toLocaleString()}</h2>
           <p>
-            Collected in {selectedMonth} <br/>
+            Collected in {selectedMonth} {selectedYear} <br />
             <span style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '4px', display: 'inline-block' }}>
               <Users size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
               {paidCount} of {safeStudents.length} Paid
@@ -336,6 +335,16 @@ function App() {
 
           <select
             className="month-selector"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+          >
+            {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1, new Date().getFullYear() + 2].map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+
+          <select
+            className="month-selector"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           >
@@ -353,17 +362,17 @@ function App() {
               Download Reports
             </button>
             <button onClick={() => setShowWaModal(true)} className="btn btn-primary" style={{ flex: 1 }}>
-               Notify Unpaid
+              Notify Unpaid
             </button>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '10px' }}>
             <button onClick={handleFinalize} className="btn btn-danger" style={{ flex: 1 }}>
               <Lock size={20} />
-              Finalize {selectedMonth}
+              Finalize {selectedMonth} {selectedYear}
             </button>
             <button onClick={() => setShowWaModal(true)} className="btn btn-primary" style={{ flex: 1 }}>
-               Notify Unpaid
+              Notify Unpaid
             </button>
           </div>
         )}
@@ -418,36 +427,36 @@ function App() {
           <div className="modal-overlay">
             <div className="modal-content">
               <div className={`modal-icon ${modalType === 'confirmFinalize' ? 'danger' : ''}`}>
-                {modalType === 'confirmFinalize' ? <AlertTriangle size={32} /> : 
-                 modalType === 'downloadSelect' ? <Download size={32} /> : <CheckCircle2 size={32} />}
+                {modalType === 'confirmFinalize' ? <AlertTriangle size={32} /> :
+                  modalType === 'downloadSelect' ? <Download size={32} /> : <CheckCircle2 size={32} />}
               </div>
-              <h3>{modalType === 'confirmFinalize' ? 'Confirm Action' : 
-                   modalType === 'downloadSelect' ? 'Download Reports' : 'Notice'}</h3>
+              <h3>{modalType === 'confirmFinalize' ? 'Confirm Action' :
+                modalType === 'downloadSelect' ? 'Download Reports' : 'Notice'}</h3>
               <p>{modalMessage}</p>
-              
+
               <div className="modal-actions" style={{ flexDirection: modalType === 'downloadSelect' ? 'column' : 'row' }}>
                 {modalType === 'downloadSelect' ? (
                   <>
-                    <button className="btn btn-primary" onClick={generateSummaryReport} style={{fontSize: '0.9rem', padding: '12px'}}>
+                    <button className="btn btn-primary" onClick={generateSummaryReport} style={{ fontSize: '0.9rem', padding: '12px' }}>
                       Download Summary Report
                     </button>
-                    <button className="btn btn-primary" onClick={generateLedgerReport} style={{fontSize: '0.9rem', padding: '12px'}}>
+                    <button className="btn btn-primary" onClick={generateLedgerReport} style={{ fontSize: '0.9rem', padding: '12px' }}>
                       Download Ledger Report
                     </button>
-                    <button className="btn btn-secondary" onClick={() => setShowModal(false)} style={{padding: '12px'}}>
+                    <button className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ padding: '12px' }}>
                       Cancel
                     </button>
                   </>
                 ) : (
                   <>
-                    <button 
+                    <button
                       className="btn btn-secondary"
                       onClick={() => setShowModal(false)}
                     >
                       {modalType === 'confirmFinalize' ? 'Cancel' : 'Okay'}
                     </button>
                     {modalType === 'confirmFinalize' && (
-                      <button 
+                      <button
                         className="btn btn-danger"
                         onClick={confirmFinalizeAction}
                       >
@@ -467,20 +476,20 @@ function App() {
             <div className="modal-content">
               <h3 style={{ color: 'white', marginBottom: '15px' }}>Send Reminders</h3>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '15px' }}>
-                This will automatically send a WhatsApp message to all students marked as "Unpaid" for {selectedMonth}.
+                This will automatically send a WhatsApp message to all students marked as "Unpaid" for {selectedMonth} {selectedYear}.
               </p>
-              
-              <textarea 
-                value={waMessage} 
-                onChange={(e) => setWaMessage(e.target.value)} 
+
+              <textarea
+                value={waMessage}
+                onChange={(e) => setWaMessage(e.target.value)}
                 placeholder="Type your WhatsApp message here..."
-                style={{ 
+                style={{
                   width: '100%', height: '120px', marginBottom: '20px', padding: '15px',
                   backgroundColor: 'var(--surface)', color: 'white', border: '1px solid var(--border)',
                   borderRadius: '8px', fontSize: '1rem', resize: 'none'
                 }}
               />
-              
+
               <div className="modal-actions">
                 <button onClick={() => setShowWaModal(false)} className="btn btn-secondary">
                   Cancel
