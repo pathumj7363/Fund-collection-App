@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { 
+  Search, 
+  Download, 
+  Lock, 
+  CheckCircle2, 
+  XCircle, 
+  AlertTriangle,
+  Wallet,
+  Users
+} from 'lucide-react';
 import './index.css';
 
 const MONTHS = [
@@ -64,12 +74,15 @@ function App() {
       ));
     } catch (error) {
       console.error("Error updating payment:", error);
-      alert("Failed to update payment");
+      setModalMessage("Failed to update payment");
+      setModalType('alert');
+      setShowModal(true);
     }
   };
 
+  const safeStudents = students || [];
   // Calculate dashboard stats
-  const paidCount = students.filter(s => s.status === 'paid').length;
+  const paidCount = safeStudents.filter(s => s.status === 'paid').length;
   const totalCollected = paidCount * FEE_AMOUNT;
 
   const handleFinalize = () => {
@@ -91,28 +104,112 @@ function App() {
     }
   };
 
-  const generateReport = () => {
+  const handleDownloadClick = () => {
+    setModalType('downloadSelect');
+    setModalMessage('Which report would you like to download?');
+    setShowModal(true);
+  };
+
+  const generateSummaryReport = () => {
     const doc = new jsPDF();
     const currentYear = new Date().getFullYear();
-
-    // Header
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Top Header Banner
+    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // App Logo/Name
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text(`Batch fund - ${selectedMonth}/${currentYear}`, 14, 22);
+    doc.setFont("helvetica", "bold");
+    doc.text("BATCH FUND COLLECTION REPORT", 14, 25);
+    
+    // Statement Period Details
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Statement Period: ${selectedMonth} ${currentYear}`, 14, 55);
+    
+    doc.setDrawColor(226, 232, 240); // Slate 200
+    doc.setLineWidth(0.5);
+    doc.line(14, 60, pageWidth - 14, 60);
 
-    // Details
+    // Summary Box
+    doc.setFillColor(248, 250, 252); // Slate 50
+    doc.roundedRect(14, 70, pageWidth - 28, 90, 3, 3, 'FD');
+    
+    // Box Title
     doc.setFontSize(12);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Department: software engineering`, 14, 32);
-    doc.text(`Student status: boys`, 14, 40);
-    doc.text(`Paid Students: ${paidCount}`, 14, 48);
-    doc.text(`Total Collection: LKR ${totalCollected}`, 14, 56);
+    doc.setTextColor(100, 116, 139); // Slate 500
+    doc.text("ACCOUNT OVERVIEW", 20, 82);
+    
+    // Details
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    
+    const detailsLeft = 20;
+    const detailsRight = pageWidth / 2 + 10;
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Department:", detailsLeft, 95);
+    doc.setFont("helvetica", "normal");
+    doc.text("Software Engineering", detailsLeft + 30, 95);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Student Status:", detailsLeft, 105);
+    doc.setFont("helvetica", "normal");
+    doc.text("Boys", detailsLeft + 35, 105);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Total Students:", detailsRight, 95);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${safeStudents.length}`, detailsRight + 35, 95);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Paid Students:", detailsRight, 105);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${paidCount}`, detailsRight + 35, 105);
 
+    // Total Collection Highlight
+    doc.setDrawColor(203, 213, 225); // Slate 300
+    doc.line(20, 115, pageWidth - 20, 115);
+    
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total Collection:", 20, 135);
+    
+    doc.setFontSize(22);
+    doc.setTextColor(16, 185, 129); // Emerald 500
+    doc.text(`LKR ${totalCollected.toLocaleString()}`, detailsRight, 135);
+    
+    // Footer Page 1
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} | Page 1 of 1`, pageWidth / 2, 280, { align: 'center' });
+
+    doc.save(`Summary_Report_${selectedMonth}_${currentYear}.pdf`);
+    setShowModal(false);
+  };
+
+  const generateLedgerReport = () => {
+    const doc = new jsPDF();
+    const currentYear = new Date().getFullYear();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Page Header
+    doc.setFillColor(139, 92, 246); // Violet 500
+    doc.rect(0, 0, pageWidth, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`DETAILED PAYMENT LEDGER - ${selectedMonth.toUpperCase()} ${currentYear}`, 14, 13);
+    
     // Table
-    const tableColumn = ["ID", "Name", "Fee Amount", "Status"];
+    const tableColumn = ["ID", "Student Name", "Fee Amount", "Status"];
     const tableRows = [];
 
-    students.forEach(student => {
+    safeStudents.forEach(student => {
       const studentData = [
         student.id,
         student.name,
@@ -122,18 +219,55 @@ function App() {
       tableRows.push(studentData);
     });
 
+    let dynamicFontSize = 10;
+    let dynamicPadding = 4;
+    
+    if (safeStudents.length > 15) {
+       dynamicFontSize = Math.max(6, 12 - Math.ceil(safeStudents.length / 10)); 
+       dynamicPadding = Math.max(1, 5 - Math.ceil(safeStudents.length / 15)); 
+    }
+
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 65,
-      theme: 'grid',
-      headStyles: { fillColor: [187, 134, 252] },
+      startY: 30,
+      theme: 'striped',
+      styles: {
+        fontSize: dynamicFontSize,
+        cellPadding: dynamicPadding
+      },
+      headStyles: { 
+        fillColor: [15, 23, 42], // Slate 900
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      didParseCell: function(data) {
+        // Color the Status column text
+        if (data.section === 'body' && data.column.index === 3) {
+          if (data.cell.raw === 'PAID') {
+            data.cell.styles.textColor = [16, 185, 129]; // Emerald
+            data.cell.styles.fontStyle = 'bold';
+          } else {
+            data.cell.styles.textColor = [244, 63, 94]; // Rose
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      }
     });
+    
+    // Footer
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} | Page 1 of 1`, pageWidth / 2, 280, { align: 'center' });
 
-    doc.save(`Batch_Fund_Report_${selectedMonth}_${currentYear}.pdf`);
+    doc.save(`Ledger_Report_${selectedMonth}_${currentYear}.pdf`);
+    setShowModal(false);
   };
 
-  const filteredStudents = students.filter(student => {
+  const filteredStudents = safeStudents.filter(student => {
     const matchesFilter = filter === 'all' || student.status === filter;
     const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
@@ -141,47 +275,38 @@ function App() {
 
   return (
     <>
-      <div className="app-bar">
-        <h1>Batch Fund Collector</h1>
+      <div className="app-bar glass">
+        <Wallet size={28} color="var(--primary)" />
+        <h1>Fund Flow</h1>
       </div>
 
       <div className="container">
         {/* Dashboard Section */}
-        <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-          <h2 style={{ fontSize: '2.5rem', color: 'var(--success)' }}>LKR {totalCollected}</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Collected in {selectedMonth} ({paidCount}/{students.length} Paid)
+        <div className="dashboard-card glass">
+          <h2>LKR {totalCollected.toLocaleString()}</h2>
+          <p>
+            Collected in {selectedMonth} <br/>
+            <span style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '4px', display: 'inline-block' }}>
+              <Users size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+              {paidCount} of {safeStudents.length} Paid
+            </span>
           </p>
         </div>
 
         {/* Search Bar */}
-        <div className="search-container">
-          <div className="search-wrapper">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="search-icon"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search students..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+        <div className="search-wrapper">
+          <Search size={20} className="search-icon" />
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search students..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
 
         {/* Month & Status Filters */}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '10px' }}>
+        <div className="filters-row">
           <select
             className="month-selector"
             value={selectedMonth}
@@ -205,26 +330,19 @@ function App() {
 
         {/* Action Buttons */}
         {isFinalized ? (
-          <button onClick={generateReport} className="download-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Download Report
+          <button onClick={handleDownloadClick} className="btn btn-primary">
+            <Download size={20} />
+            Download Reports
           </button>
         ) : (
-          <button onClick={handleFinalize} className="download-btn" style={{ background: 'linear-gradient(135deg, var(--danger), #ff8a65)' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
+          <button onClick={handleFinalize} className="btn btn-danger">
+            <Lock size={20} />
             Finalize {selectedMonth}
           </button>
         )}
 
         {/* Student List */}
-        <div>
+        <div className="student-list">
           {filteredStudents.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
               <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>No students found</p>
@@ -232,16 +350,27 @@ function App() {
             </div>
           ) : (
             filteredStudents.map(student => (
-              <div key={student.id} className="student-card">
+              <div key={student.id} className="student-card glass">
                 <div className="student-info">
-                  <h2>{student.name}</h2>
-                  <p>Monthly Fee: LKR {FEE_AMOUNT}</p>
+                  <div className="student-avatar">
+                    {student.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="student-details">
+                    <h2>{student.name}</h2>
+                    <p>
+                      {student.status === 'paid' ? (
+                        <CheckCircle2 size={14} color="var(--success)" />
+                      ) : (
+                        <XCircle size={14} color="var(--danger)" />
+                      )}
+                      <span style={{ color: student.status === 'paid' ? 'var(--success)' : 'var(--danger)', fontWeight: 500, textTransform: 'capitalize' }}>
+                        {student.status}
+                      </span>
+                    </p>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span className={`status-text ${student.status === 'paid' ? 'status-paid' : 'status-unpaid'}`}>
-                    {student.status}
-                  </span>
                   <label className="switch">
                     <input
                       type="checkbox"
@@ -259,26 +388,47 @@ function App() {
 
         {/* Custom UI Pop-up Modal */}
         {showModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'var(--surface)', padding: '25px', borderRadius: '12px', maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-              <h3 style={{ marginBottom: '15px', color: 'var(--primary)' }}>{modalType === 'confirmFinalize' ? 'Confirm Action' : 'Notice'}</h3>
-              <p style={{ marginBottom: '25px', color: 'var(--text-primary)', lineHeight: '1.5' }}>{modalMessage}</p>
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className={`modal-icon ${modalType === 'confirmFinalize' ? 'danger' : ''}`}>
+                {modalType === 'confirmFinalize' ? <AlertTriangle size={32} /> : 
+                 modalType === 'downloadSelect' ? <Download size={32} /> : <CheckCircle2 size={32} />}
+              </div>
+              <h3>{modalType === 'confirmFinalize' ? 'Confirm Action' : 
+                   modalType === 'downloadSelect' ? 'Download Reports' : 'Notice'}</h3>
+              <p>{modalMessage}</p>
               
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
-                {modalType === 'confirmFinalize' && (
-                  <button 
-                    onClick={confirmFinalizeAction}
-                    style={{ padding: '10px 20px', backgroundColor: 'var(--danger)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    Yes, Finalize
-                  </button>
+              <div className="modal-actions" style={{ flexDirection: modalType === 'downloadSelect' ? 'column' : 'row' }}>
+                {modalType === 'downloadSelect' ? (
+                  <>
+                    <button className="btn btn-primary" onClick={generateSummaryReport} style={{fontSize: '0.9rem', padding: '12px'}}>
+                      Download Summary Report
+                    </button>
+                    <button className="btn btn-primary" onClick={generateLedgerReport} style={{fontSize: '0.9rem', padding: '12px'}}>
+                      Download Ledger Report
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setShowModal(false)} style={{padding: '12px'}}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      className="btn btn-secondary"
+                      onClick={() => setShowModal(false)}
+                    >
+                      {modalType === 'confirmFinalize' ? 'Cancel' : 'Okay'}
+                    </button>
+                    {modalType === 'confirmFinalize' && (
+                      <button 
+                        className="btn btn-danger"
+                        onClick={confirmFinalizeAction}
+                      >
+                        Finalize
+                      </button>
+                    )}
+                  </>
                 )}
-                <button 
-                  onClick={() => setShowModal(false)}
-                  style={{ padding: '10px 20px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  {modalType === 'confirmFinalize' ? 'Cancel' : 'Okay'}
-                </button>
               </div>
             </div>
           </div>
