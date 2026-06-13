@@ -42,7 +42,7 @@ function App() {
 
   const fetchStudents = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/students/${selectedMonth} ${selectedYear}`);
+      const response = await axios.get(`${API_BASE}/students/${selectedMonth} ${selectedYear}`);
       if (Array.isArray(response.data)) {
         setStudents(response.data);
         setIsFinalized(false);
@@ -67,7 +67,7 @@ function App() {
 
     try {
       // Send update to the backend
-      await axios.post('http://localhost:5000/api/payments', {
+      await axios.post(`${API_BASE}/payments`, {
         student_id: studentId,
         month: `${selectedMonth} ${selectedYear}`,
         status: newStatus
@@ -98,7 +98,7 @@ function App() {
 
   const confirmFinalizeAction = async () => {
     try {
-      await axios.post('http://localhost:5000/api/finalize', { month: `${selectedMonth} ${selectedYear}` });
+      await axios.post(`${API_BASE}/finalize`, { month: `${selectedMonth} ${selectedYear}` });
       setIsFinalized(true);
       setModalMessage(`${selectedMonth} ${selectedYear} collection has been finalized.`);
       setModalType('alert');
@@ -111,7 +111,7 @@ function App() {
 
   const sendWhatsAppReminders = async () => {
     try {
-      await axios.post('http://localhost:5000/api/whatsapp/remind', {
+      await axios.post(`${API_BASE}/whatsapp/remind`, {
         month: `${selectedMonth} ${selectedYear}`,
         message: waMessage
       });
