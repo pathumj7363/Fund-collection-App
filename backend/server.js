@@ -156,9 +156,23 @@ app.post('/api/whatsapp/remind', async (req, res) => {
         for (const student of unpaidStudents) {
             if (student.phone_number) {
                 try {
-                    const chatId = `${student.phone_number}@c.us`;
+                    let phone = student.phone_number.toString().trim();
+                    // Remove any non-digit characters
+                    phone = phone.replace(/\D/g, '');
+                    
+                    // Format Sri Lankan numbers (replace leading 0 with 94)
+                    if (phone.startsWith('0') && phone.length === 10) {
+                        phone = '94' + phone.substring(1);
+                    } else if (phone.length === 9 && !phone.startsWith('94')) {
+                        phone = '94' + phone;
+                    }
+
+                    const chatId = `${phone}@c.us`;
                     await whatsappClient.sendMessage(chatId, message);
                     successful.push(student);
+                    
+                    // Small delay to prevent WhatsApp from rate limiting or blocking
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (err) {
                     console.error(`Failed to send to ${student.name}:`, err);
                     failed.push({ ...student, reason: "WhatsApp send failed" });
