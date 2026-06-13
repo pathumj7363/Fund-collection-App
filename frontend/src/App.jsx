@@ -33,8 +33,6 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showWaModal, setShowWaModal] = useState(false);
   const [waMessage, setWaMessage] = useState('');
-  const [showNotifyResultsModal, setShowNotifyResultsModal] = useState(false);
-  const [notifyResults, setNotifyResults] = useState(null);
   const FEE_AMOUNT = 100; // LKR 100 per month
 
   // Fetch students and their status whenever the month changes
@@ -113,17 +111,21 @@ function App() {
 
   const sendWhatsAppReminders = async () => {
     try {
-      const response = await axios.post(`${API_BASE}/whatsapp/remind`, {
+      await axios.post(`${API_BASE}/whatsapp/remind`, {
         month: `${selectedMonth} ${selectedYear}`,
         message: waMessage
       });
-      setNotifyResults(response.data);
       setShowWaModal(false);
-      setShowNotifyResultsModal(true);
       setWaMessage('');
+      setModalType('alert');
+      setModalMessage('Messages have been successfully sent to unpaid students!');
+      setShowModal(true);
     } catch (error) {
       console.error(error);
-      alert("Error sending messages. Is the WhatsApp client ready?");
+      setShowWaModal(false);
+      setModalType('alert');
+      setModalMessage('Error sending messages. Is the WhatsApp client ready?');
+      setShowModal(true);
     }
   };
 
@@ -507,61 +509,6 @@ function App() {
           </div>
         )}
 
-        {/* WhatsApp Notification Results Modal */}
-        {showNotifyResultsModal && notifyResults && (
-          <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
-              <h3>Notification Results</h3>
-              <div style={{ marginBottom: '20px', display: 'flex', gap: '15px' }}>
-                <div className="dashboard-card glass" style={{ flex: 1, padding: '15px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--text-secondary)' }}>Intended</h4>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '5px 0 0' }}>{notifyResults.intended || 0}</p>
-                </div>
-                <div className="dashboard-card glass" style={{ flex: 1, padding: '15px', borderColor: 'var(--success)' }}>
-                  <h4 style={{ margin: 0, color: 'var(--success)' }}>Success</h4>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '5px 0 0', color: 'var(--success)' }}>{notifyResults.successful?.length || 0}</p>
-                </div>
-                <div className="dashboard-card glass" style={{ flex: 1, padding: '15px', borderColor: 'var(--danger)' }}>
-                  <h4 style={{ margin: 0, color: 'var(--danger)' }}>Failed</h4>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '5px 0 0', color: 'var(--danger)' }}>{notifyResults.failed?.length || 0}</p>
-                </div>
-              </div>
-
-              {notifyResults.failed?.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  <h4 style={{ color: 'var(--danger)', marginBottom: '10px' }}>Failed Messages</h4>
-                  <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-                    {notifyResults.failed.map((s, i) => (
-                      <li key={i} style={{ padding: '8px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{s.name} ({s.phone_number || 'No Number'})</span>
-                        <span style={{ color: 'var(--danger)', fontSize: '0.85em' }}>{s.reason}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {notifyResults.successful?.length > 0 && (
-                <div>
-                  <h4 style={{ color: 'var(--success)', marginBottom: '10px' }}>Successful Messages</h4>
-                  <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-                    {notifyResults.successful.map((s, i) => (
-                      <li key={i} style={{ padding: '8px', borderBottom: '1px solid var(--border)' }}>
-                        {s.name} ({s.phone_number})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="modal-actions" style={{ marginTop: '20px' }}>
-                <button onClick={() => setShowNotifyResultsModal(false)} className="btn btn-primary" style={{ width: '100%' }}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

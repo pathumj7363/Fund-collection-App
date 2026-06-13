@@ -129,7 +129,7 @@ app.post('/api/finalize', async (req, res) => {
 // POST to send WhatsApp reminders
 app.post('/api/whatsapp/remind', async (req, res) => {
     const { month, message } = req.body;
-    
+
     try {
         // Find unpaid students for the selected month (including those with no payment record yet)
         const [unpaidStudents] = await db.query(
@@ -139,16 +139,16 @@ app.post('/api/whatsapp/remind', async (req, res) => {
              WHERE p.status = 'unpaid' OR p.status IS NULL`,
             [month]
         );
-        
-        if(unpaidStudents.length === 0) {
-            return res.status(200).json({ 
-                message: "No unpaid students found.", 
-                intended: 0, 
-                successful: [], 
-                failed: [] 
+
+        if (unpaidStudents.length === 0) {
+            return res.status(200).json({
+                message: "No unpaid students found.",
+                intended: 0,
+                successful: [],
+                failed: []
             });
         }
-        
+
         const successful = [];
         const failed = [];
 
@@ -159,7 +159,7 @@ app.post('/api/whatsapp/remind', async (req, res) => {
                     let phone = student.phone_number.toString().trim();
                     // Remove any non-digit characters
                     phone = phone.replace(/\D/g, '');
-                    
+
                     // Format Sri Lankan numbers (replace leading 0 with 94)
                     if (phone.startsWith('0') && phone.length === 10) {
                         phone = '94' + phone.substring(1);
@@ -170,7 +170,7 @@ app.post('/api/whatsapp/remind', async (req, res) => {
                     const chatId = `${phone}@c.us`;
                     await whatsappClient.sendMessage(chatId, message);
                     successful.push(student);
-                    
+
                     // Small delay to prevent WhatsApp from rate limiting or blocking
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (err) {
@@ -181,9 +181,9 @@ app.post('/api/whatsapp/remind', async (req, res) => {
                 failed.push({ ...student, reason: "No phone number" });
             }
         }
-        
-        res.status(200).json({ 
-            message: "Messages processed!", 
+
+        res.status(200).json({
+            message: "Messages processed!",
             intended: unpaidStudents.length,
             successful,
             failed
