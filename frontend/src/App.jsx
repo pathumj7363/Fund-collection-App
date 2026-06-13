@@ -19,6 +19,8 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const API_BASE = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`;
+
 function App() {
   const [students, setStudents] = useState([]);
   const [isFinalized, setIsFinalized] = useState(false);
