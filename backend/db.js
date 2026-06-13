@@ -6,10 +6,13 @@ const pool = mysql.createPool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    port: 4000,
+    ssl: { rejectUnauthorized: true },
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
+
 
 // We use promises so we can use async/await in our routes
 const promisepool = pool.promise();
