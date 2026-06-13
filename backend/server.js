@@ -2,8 +2,37 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const db = require('./db'); //import our database connection
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
 
 const app = express();
+
+const whatsappClient = new Client({
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    }
+});
+
+whatsappClient.on('qr', (qr) => {
+    qrcode.generate(qr, { small: true });
+    console.log("WAITING... Scan the QR code above with your WhatsApp app!");
+});
+
+whatsappClient.on('ready', () => {
+    console.log('✅ WhatsApp Client is ready and connected!');
+});
+
+whatsappClient.initialize();
 
 //middleware
 
@@ -89,6 +118,35 @@ app.post('/api/finalize', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "server error" });
+    }
+});
+
+// POST to send WhatsApp reminders
+app.post('/api/whatsapp/remind', async (req, res) => {
+    const { month, message } = req.body;
+    
+    try {
+        // Find unpaid students for the selected month
+        const [unpaidStudents] = await db.query(
+            'SELECT s.phone_number FROM payments p JOIN students s ON p.student_id = s.id WHERE p.month = ? AND p.status = "unpaid"',
+            [month]
+        );
+        
+        if(unpaidStudents.length === 0) {
+            return res.status(200).json({ message: "No unpaid students found." });
+        }
+        
+        // Loop through unpaid students and send WhatsApp message
+        for (const student of unpaidStudents) {
+            if (student.phone_number) {
+                const chatId = `${student.phone_number}@c.us`;
+                await whatsappClient.sendMessage(chatId, message);
+            }
+        }
+        res.status(200).json({ message: "Messages sent successfully!" });
+    } catch (error) {
+        console.error("WhatsApp Error:", error);
+        res.status(500).json({ error: "Failed to send messages" });
     }
 });
 

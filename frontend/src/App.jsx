@@ -28,6 +28,8 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState('January');
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showWaModal, setShowWaModal] = useState(false);
+  const [waMessage, setWaMessage] = useState('');
   const FEE_AMOUNT = 100; // LKR 100 per month
 
   // Fetch students and their status whenever the month changes
@@ -101,6 +103,21 @@ function App() {
       console.error("Error finalizing:", error);
       setModalMessage("Failed to finalize month. Is the backend running?");
       setModalType('alert');
+    }
+  };
+
+  const sendWhatsAppReminders = async () => {
+    try {
+      await axios.post('http://localhost:5000/api/whatsapp/remind', {
+        month: selectedMonth,
+        message: waMessage
+      });
+      alert("Messages have been sent to unpaid students!");
+      setShowWaModal(false);
+      setWaMessage('');
+    } catch(error) {
+      console.error(error);
+      alert("Error sending messages. Is the WhatsApp client ready?");
     }
   };
 
@@ -330,15 +347,25 @@ function App() {
 
         {/* Action Buttons */}
         {isFinalized ? (
-          <button onClick={handleDownloadClick} className="btn btn-primary">
-            <Download size={20} />
-            Download Reports
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={handleDownloadClick} className="btn btn-primary" style={{ flex: 1 }}>
+              <Download size={20} />
+              Download Reports
+            </button>
+            <button onClick={() => setShowWaModal(true)} className="btn btn-primary" style={{ flex: 1 }}>
+               Notify Unpaid
+            </button>
+          </div>
         ) : (
-          <button onClick={handleFinalize} className="btn btn-danger">
-            <Lock size={20} />
-            Finalize {selectedMonth}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={handleFinalize} className="btn btn-danger" style={{ flex: 1 }}>
+              <Lock size={20} />
+              Finalize {selectedMonth}
+            </button>
+            <button onClick={() => setShowWaModal(true)} className="btn btn-primary" style={{ flex: 1 }}>
+               Notify Unpaid
+            </button>
+          </div>
         )}
 
         {/* Student List */}
@@ -429,6 +456,38 @@ function App() {
                     )}
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp Notification Modal */}
+        {showWaModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3 style={{ color: 'white', marginBottom: '15px' }}>Send Reminders</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '15px' }}>
+                This will automatically send a WhatsApp message to all students marked as "Unpaid" for {selectedMonth}.
+              </p>
+              
+              <textarea 
+                value={waMessage} 
+                onChange={(e) => setWaMessage(e.target.value)} 
+                placeholder="Type your WhatsApp message here..."
+                style={{ 
+                  width: '100%', height: '120px', marginBottom: '20px', padding: '15px',
+                  backgroundColor: 'var(--surface)', color: 'white', border: '1px solid var(--border)',
+                  borderRadius: '8px', fontSize: '1rem', resize: 'none'
+                }}
+              />
+              
+              <div className="modal-actions">
+                <button onClick={() => setShowWaModal(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button onClick={sendWhatsAppReminders} className="btn btn-primary">
+                  Send Messages
+                </button>
               </div>
             </div>
           </div>
