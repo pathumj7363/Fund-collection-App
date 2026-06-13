@@ -13,6 +13,7 @@ const whatsappClient = new Client({
         // Only use the hardcoded Windows path if running locally on your PC. 
         // In production (cloud server), it will automatically download and use its own Chromium.
         ...(process.env.NODE_ENV !== 'production' && { executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' }),
+        ...(process.env.NODE_ENV === 'production' && { executablePath: '/usr/bin/google-chrome-stable' }),
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
